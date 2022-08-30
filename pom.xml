@@ -92,8 +92,8 @@
                                     <mainClass>${main.class}</mainClass>
                                 </manifest>
                             </archive>
-                            <descriptorRefs>s
-                                <descriptorRef>fat</descriptorRef>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
                             </descriptorRefs>
                         </configuration>
                     </execution>
