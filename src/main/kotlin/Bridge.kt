@@ -10,7 +10,9 @@ import kotlin.math.min
 
 @Suppress("RegExpUnnecessaryNonCapturingGroup")
 const val urlRegex = "\\b(?:(?:https?|ftp)://)(?:\\S+(?::\\S*)?@)?(?:(?!(?:10|127)(?:\\.\\d{1,3}){3})(?!(?:169\\.254|192\\.168)(?:\\.\\d{1,3}){2})(?!172\\.(?:1[6-9]|2\\d|3[0-1])(?:\\.\\d{1,3}){2})(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[1-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]-*)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,}))\\.?)(?::\\d{2,5})?(?:[/?#]\\S*)?\\b"
-val urlPattern = Pattern.compile(urlRegex)
+const val actionMessageRegex = "\u0001ACTION( (.+)?)?\u0001"
+val urlPattern = Pattern.compile(urlRegex)!!
+val actionMessagePattern = Pattern.compile(actionMessageRegex)!!
 
 val dotenv = dotenv {
     ignoreIfMalformed = true
@@ -58,7 +60,8 @@ fun main(): Unit = runBlocking {
                             if (!pieces[2].contains("#vietnamese")) {
                                 continue
                             }
-                            val msg = pieces[3].drop(1)
+
+                            var msg = pieces[3].drop(1)
                                 // sanitize
                                 .replace("@everyone", "at-everyone")
                                 .replace("@here", "at-here")
@@ -69,14 +72,19 @@ fun main(): Unit = runBlocking {
                                     match -> "<${match.groupValues.first()}>"
                                 }
 
+                            val action = actionMessagePattern.toRegex().find(msg)?.groups?.get(2)
+                            if (action != null) {
+                                msg = "(*) ${action.value}"
+                            }
+
                             val author = pieces[0].drop(1).dropLast(11) // !cho@ppy.sh
                             for (ch in channels) {
                                 try {
                                     kord.channel.createMessage(Snowflake(ch.toULong())) {
                                         content = "[$author] $msg"
                                     }
-                                } catch (_: Exception) {
-
+                                } catch (e: Exception) {
+                                    println("! Failed to send msg to channel $ch : \n $e")
                                 }
                             }
                         }
