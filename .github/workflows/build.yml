@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'pom.xml'
+      - '.github/workflows/build.yml'
   repository_dispatch:
   workflow_dispatch:
 
