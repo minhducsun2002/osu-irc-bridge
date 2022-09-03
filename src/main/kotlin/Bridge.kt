@@ -1,10 +1,16 @@
 import dev.kord.common.entity.Snowflake
-import dev.kord.rest.service.RestClient
+import dev.kord.core.Kord
+import dev.kord.core.event.gateway.DisconnectEvent
+import dev.kord.core.event.gateway.ReadyEvent
+import dev.kord.core.on
 import io.github.cdimascio.dotenv.dotenv
 import java.io.PrintWriter
 import java.net.Socket
 import java.util.*
 import kotlinx.coroutines.*
+import org.threeten.extra.AmountFormats
+import java.time.Duration
+import java.time.OffsetDateTime
 import java.util.regex.Pattern
 import kotlin.math.min
 
@@ -40,19 +46,35 @@ var send = PrintWriter(socket.getOutputStream(), true)
 fun main(): Unit = runBlocking {
     sendInitialCommands(ircUsername, ircPassword, send)
 
-    val kord = RestClient(discordToken)
+    val k = Kord(discordToken)
+    val kord = k.rest
 
     var reconnectIfFail = true
-    var delay = 0
+    var reconnectionDelay = 0
     val maxDelay = 30 * 60 * 1000
+    var lastPing = OffsetDateTime.now()
 
-    launch {
+    suspend fun refreshStatus() {
+        while (true) {
+            delay(5000)
+            val now = OffsetDateTime.now()
+            val diff = Duration.between(lastPing, now)
+            val humanizedDiff = AmountFormats.wordBased(diff, Locale.ENGLISH)
+            k.editPresence {
+                playing("Last ping : $humanizedDiff ago")
+            }
+        }
+    }
+
+    suspend fun work() {
         while (true) {
             try {
+                yield()
                 val s = scanner.nextLine()
                 val pieces = s.split(' ', limit = 4)
                 if (pieces[0] == "PING") {
                     send.println("PONG " + pieces[1])
+                    lastPing = OffsetDateTime.now()
                 }
                 else {
                     when (pieces[1]) {
@@ -66,10 +88,10 @@ fun main(): Unit = runBlocking {
                                 .replace("@everyone", "at-everyone")
                                 .replace("@here", "at-here")
                                 .replace(Regex("<@&(\\d{17,19})>")) {
-                                    match -> "at-role-" + match.groupValues[1]
+                                        match -> "at-role-" + match.groupValues[1]
                                 }
                                 .replace(urlPattern.toRegex()) {
-                                    match -> "<${match.groupValues.first()}>"
+                                        match -> "<${match.groupValues.first()}>"
                                 }
 
                             val action = actionMessagePattern.toRegex().find(msg)?.groups?.get(2)
@@ -90,7 +112,7 @@ fun main(): Unit = runBlocking {
                         }
 
                         "001" -> {
-                            delay = 1000
+                            reconnectionDelay = 1000
                             println(s) // welcome
                         }
 
@@ -107,10 +129,10 @@ fun main(): Unit = runBlocking {
                 }
 
                 println("The other side disconnected. Attempting reconnection.")
-                if (delay != 0) {
-                    println("Delaying reconnection by $delay ms.")
+                if (reconnectionDelay != 0) {
+                    println("Delaying reconnection by $reconnectionDelay ms.")
                 }
-                delay = min(delay + 1000, maxDelay)
+                reconnectionDelay = min(reconnectionDelay + 1000, maxDelay)
                 socket.close()
                 try {
                     initialize()
@@ -119,6 +141,21 @@ fun main(): Unit = runBlocking {
             }
         }
     }
+
+    var once = false
+    k.on<ReadyEvent> {
+        if (!once) {
+            once = true
+            val user = k.getSelf()
+            println("Woke as ${user.username}#${user.discriminator}")
+            launch { work() }
+            launch { refreshStatus() }
+        }
+    }
+    k.on<DisconnectEvent> {
+        println("oops")
+    }
+    k.login()
 }
 
 
