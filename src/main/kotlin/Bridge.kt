@@ -11,6 +11,7 @@ import kotlinx.coroutines.*
 import org.threeten.extra.AmountFormats
 import java.time.Duration
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.math.min
 
@@ -153,7 +154,9 @@ fun main(): Unit = runBlocking {
         }
     }
     k.on<DisconnectEvent> {
-        println("oops")
+        val now = OffsetDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        println("disconnected @ ${now.format(formatter)}")
     }
     k.login()
 }
