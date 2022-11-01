@@ -2,6 +2,7 @@ import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.event.gateway.DisconnectEvent
 import dev.kord.core.event.gateway.ReadyEvent
+import dev.kord.core.event.gateway.ResumedEvent
 import dev.kord.core.on
 import io.github.cdimascio.dotenv.dotenv
 import java.io.PrintWriter
@@ -153,10 +154,13 @@ fun main(): Unit = runBlocking {
             launch { refreshStatus() }
         }
     }
+    k.on<ResumedEvent> {
+        println("Resumed session.")
+    }
     k.on<DisconnectEvent> {
         val now = OffsetDateTime.now()
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
-        println("disconnected @ ${now.format(formatter)}")
+        println("Discord : disconnected @ ${now.format(formatter)}")
     }
     k.login()
 }
